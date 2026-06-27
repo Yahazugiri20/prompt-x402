@@ -64,8 +64,8 @@ app.post("/api/optimize", async (req, res) => {
 
   console.log("Using API key:", veniceApiKey.substring(0, 10) + "...");
 
-  // Try multiple models
-  const models = ["moonshotai/kimi-k2-5", "moonshotai-kimi-k2-5", "hermes-3-llama-3.1-70b"];
+  // Try multiple models - prioritize hermes for better instruction following
+  const models = ["hermes-3-llama-3.1-70b", "claude-sonnet-4-20250514", "moonshotai-kimi-k2-5"];
   let lastError = null;
 
   for (const model of models) {
