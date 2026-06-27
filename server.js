@@ -21,8 +21,7 @@ const facilitatorClient = new HTTPFacilitatorClient({
 const server = new x402ResourceServer(facilitatorClient)
   .register("eip155:84532", new ExactEvmScheme());
 
-// Temporarily disable x402 for testing Venice
-// Uncomment below to enable x402 payments
+// Temporarily disable x402 for testing AI
 /*
 app.use(
   paymentMiddleware(
@@ -52,76 +51,96 @@ app.use(
 app.post("/api/optimize", async (req, res) => {
   const prompt = req.body.prompt || "gambar kucing";
 
-  // Virtuals AI Integration
-  const veniceApiKey = process.env.VIRTUALS_API_KEY;
-  if (!veniceApiKey) {
-    return res.json({
-      status: "success",
-      result: `[Optimized by Wizard] ${prompt}`,
-      note: "AI optimization disabled - no VIRTUALS_API_KEY",
-    });
+  // Check for OpenRouter API key (more reliable)
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  if (openRouterKey) {
+    try {
+      const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openRouterKey}`,
+          "HTTP-Referer": "https://prompt-wizard.local",
+          "X-Title": "Prompt Wizard",
+        },
+        body: JSON.stringify({
+          model: "anthropic/claude-3.5-sonnet",
+          messages: [
+            {
+              role: "user",
+              content: `Rewrite this image generation prompt with rich visual details (lighting, camera angle, art style, textures, colors, atmosphere):\n\n"${prompt}"\n\nReturn ONLY the improved prompt, no explanation:`
+            }
+          ],
+        }),
+      });
+
+      if (orRes.ok) {
+        const data = await orRes.json();
+        const result = data.choices?.[0]?.message?.content?.trim();
+        if (result && result.length > 10) {
+          return res.json({
+            status: "success",
+            original: prompt,
+            result: result,
+            provider: "openrouter",
+          });
+        }
+      }
+    } catch (e) {
+      console.log("OpenRouter failed:", e.message);
+    }
   }
 
-  console.log("Using API key:", veniceApiKey.substring(0, 10) + "...");
-
-  // Try multiple models - prioritize hermes for better instruction following
-  const models = ["hermes-3-llama-3.1-70b", "claude-sonnet-4-20250514", "moonshotai-kimi-k2-5"];
-  let lastError = null;
-
-  for (const model of models) {
+  // Fallback: Virtuals (echo mode, limited use)
+  const virtualsKey = process.env.VIRTUALS_API_KEY;
+  if (virtualsKey) {
     try {
-      console.log(`Trying model: ${model}`);
       const veniceRes = await fetch("https://compute.virtuals.io/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${veniceApiKey}`,
+          "Authorization": `Bearer ${virtualsKey}`,
         },
         body: JSON.stringify({
-          model: model,
+          model: "moonshotai-kimi-k2-5",
           messages: [
             {
               role: "user",
-              content: `Optimize this prompt for image generation. Make it detailed with lighting, camera angle, art style, textures, colors:
-
-"${prompt}"
-
-Return ONLY the optimized prompt, no explanation:`
+              content: `Rewrite this with vivid details: "${prompt}"`
             }
           ],
-          max_tokens: 500,
+          max_tokens: 300,
         }),
       });
 
       if (veniceRes.ok) {
-        const veniceData = await veniceRes.json();
-        const optimizedPrompt = veniceData.choices?.[0]?.message?.content?.trim() || prompt;
-        console.log("Success with model:", model);
-        return res.json({
-          status: "success",
-          original: prompt,
-          result: optimizedPrompt,
-          provider: "virtuals-ai",
-          model: model,
-        });
-      } else {
-        const errorBody = await veniceRes.text();
-        console.log(`Model ${model} failed: ${veniceRes.status} - ${errorBody}`);
-        lastError = errorBody;
+        const data = await veniceRes.json();
+        const result = data.choices?.[0]?.message?.content?.trim();
+        
+        // Only use if not echo
+        if (result && result.length > prompt.length) {
+          return res.json({
+            status: "success",
+            original: prompt,
+            result: result,
+            provider: "virtuals-ai",
+          });
+        }
       }
-    } catch (error) {
-      console.log(`Model ${model} error:`, error.message);
-      lastError = error.message;
+    } catch (e) {
+      console.log("Virtuals failed:", e.message);
     }
   }
 
-  // All models failed
-  console.error("All models failed. Last error:", lastError);
+  // Final fallback with manual enhancement
+  const enhanced = `A highly detailed, professional image of ${prompt}, cinematic lighting, photorealistic, 8k resolution, shallow depth of field, professional photography, vibrant colors, sharp focus`;
+  
   res.json({
     status: "success",
-    result: `[Optimized by Wizard] ${prompt}`,
-    error: `Virtuals API failed: ${lastError}`,
-    note: "API models unavailable, using fallback",
+    original: prompt,
+    result: enhanced,
+    provider: "fallback-template",
+    note: "AI services limited - using template enhancement",
   });
 });
 
@@ -131,5 +150,4 @@ app.listen(PORT, () => {
   console.log(`Pay To: ${MY_WALLET}`);
 });
 
-// Keep process alive
 setInterval(() => {}, 1000000);
