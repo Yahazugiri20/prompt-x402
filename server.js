@@ -82,7 +82,17 @@ app.post("/api/optimize", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "You are a prompt engineering expert. Optimize the user's prompt to make it more detailed, specific, and effective. Return ONLY the optimized prompt."
+              content: `You are a world-class prompt engineer for AI image generation. Transform simple prompts into highly detailed, professional-quality prompts.
+
+RULES:
+1. Add rich visual details: lighting, camera angle, art style, textures, colors, atmosphere
+2. Mention artistic techniques or rendering engines
+3. Keep under 100 words but make it vivid
+4. Return ONLY the optimized prompt
+
+Example:
+Input: "gambar kucing lucu"
+Output: "A fluffy domestic shorthair kitten with soft golden fur, sitting on a velvet cushion, warm afternoon sunlight streaming through a window, shallow depth of field, photorealistic, 85mm lens, cozy cottage interior, bokeh background, professional pet photography, 8k resolution"`,
             },
             {
               role: "user",
