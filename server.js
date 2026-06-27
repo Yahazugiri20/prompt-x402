@@ -21,6 +21,9 @@ const facilitatorClient = new HTTPFacilitatorClient({
 const server = new x402ResourceServer(facilitatorClient)
   .register("eip155:84532", new ExactEvmScheme());
 
+// Temporarily disable x402 for testing Venice
+// Uncomment below to enable x402 payments
+/*
 app.use(
   paymentMiddleware(
     {
@@ -44,29 +47,30 @@ app.use(
     server
   )
 );
+*/
 
 app.post("/api/optimize", async (req, res) => {
   const prompt = req.body.prompt || "gambar kucing";
 
-  // Venice AI Integration
-  const veniceApiKey = process.env.VENICE_API_KEY;
+  // Virtuals AI Integration
+  const veniceApiKey = process.env.VIRTUALS_API_KEY;
   if (!veniceApiKey) {
     return res.json({
       status: "success",
       result: `[Optimized by Wizard] ${prompt}`,
-      note: "AI optimization disabled - no VENICE_API_KEY",
+      note: "AI optimization disabled - no VIRTUALS_API_KEY",
     });
   }
 
   try {
-    const veniceRes = await fetch("https://api.venice.ai/api/v1/chat/completions", {
+    const veniceRes = await fetch("https://compute.virtuals.io/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${veniceApiKey}`,
       },
       body: JSON.stringify({
-        model: "dolphin-2.9.4-qwen2-72b",
+        model: "moonshotai/kimi-k2-5",
         messages: [
           {
             role: "system",
@@ -83,7 +87,9 @@ app.post("/api/optimize", async (req, res) => {
     });
 
     if (!veniceRes.ok) {
-      throw new Error(`Venice API error: ${veniceRes.status}`);
+      const errorBody = await veniceRes.text();
+      console.error("Virtuals API error body:", errorBody);
+      throw new Error(`Virtuals API error: ${veniceRes.status} - ${errorBody}`);
     }
 
     const veniceData = await veniceRes.json();
@@ -93,7 +99,7 @@ app.post("/api/optimize", async (req, res) => {
       status: "success",
       original: prompt,
       result: optimizedPrompt,
-      provider: "venice-ai",
+      provider: "virtuals-ai",
     });
   } catch (error) {
     console.error("Venice error:", error.message);
