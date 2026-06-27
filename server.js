@@ -62,53 +62,67 @@ app.post("/api/optimize", async (req, res) => {
     });
   }
 
-  try {
-    const veniceRes = await fetch("https://compute.virtuals.io/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${veniceApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "moonshotai/kimi-k2-5",
-        messages: [
-          {
-            role: "system",
-            content: "You are a prompt engineering expert. Optimize the user's prompt to make it more detailed, specific, and effective for image generation or text generation. Return ONLY the optimized prompt, no explanation."
-          },
-          {
-            role: "user",
-            content: `Optimize this prompt: "${prompt}"`
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
+  console.log("Using API key:", veniceApiKey.substring(0, 10) + "...");
 
-    if (!veniceRes.ok) {
-      const errorBody = await veniceRes.text();
-      console.error("Virtuals API error body:", errorBody);
-      throw new Error(`Virtuals API error: ${veniceRes.status} - ${errorBody}`);
+  // Try multiple models
+  const models = ["moonshotai/kimi-k2-5", "moonshotai-kimi-k2-5", "hermes-3-llama-3.1-70b"];
+  let lastError = null;
+
+  for (const model of models) {
+    try {
+      console.log(`Trying model: ${model}`);
+      const veniceRes = await fetch("https://compute.virtuals.io/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${veniceApiKey}`,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content: "You are a prompt engineering expert. Optimize the user's prompt to make it more detailed, specific, and effective. Return ONLY the optimized prompt."
+            },
+            {
+              role: "user",
+              content: `Optimize this prompt: "${prompt}"`
+            }
+          ],
+          max_tokens: 500,
+        }),
+      });
+
+      if (veniceRes.ok) {
+        const veniceData = await veniceRes.json();
+        const optimizedPrompt = veniceData.choices?.[0]?.message?.content?.trim() || prompt;
+        console.log("Success with model:", model);
+        return res.json({
+          status: "success",
+          original: prompt,
+          result: optimizedPrompt,
+          provider: "virtuals-ai",
+          model: model,
+        });
+      } else {
+        const errorBody = await veniceRes.text();
+        console.log(`Model ${model} failed: ${veniceRes.status} - ${errorBody}`);
+        lastError = errorBody;
+      }
+    } catch (error) {
+      console.log(`Model ${model} error:`, error.message);
+      lastError = error.message;
     }
-
-    const veniceData = await veniceRes.json();
-    const optimizedPrompt = veniceData.choices?.[0]?.message?.content?.trim() || prompt;
-
-    res.json({
-      status: "success",
-      original: prompt,
-      result: optimizedPrompt,
-      provider: "virtuals-ai",
-    });
-  } catch (error) {
-    console.error("Venice error:", error.message);
-    res.json({
-      status: "success",
-      result: `[Optimized by Wizard] ${prompt}`,
-      error: error.message,
-    });
   }
+
+  // All models failed
+  console.error("All models failed. Last error:", lastError);
+  res.json({
+    status: "success",
+    result: `[Optimized by Wizard] ${prompt}`,
+    error: `Virtuals API failed: ${lastError}`,
+    note: "API models unavailable, using fallback",
+  });
 });
 
 app.listen(PORT, () => {
@@ -116,3 +130,6 @@ app.listen(PORT, () => {
   console.log(`Network: Base Sepolia (eip155:84532)`);
   console.log(`Pay To: ${MY_WALLET}`);
 });
+
+// Keep process alive
+setInterval(() => {}, 1000000);
