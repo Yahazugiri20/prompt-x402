@@ -81,16 +81,12 @@ app.post("/api/optimize", async (req, res) => {
           model: model,
           messages: [
             {
-              role: "system",
-              content: `You are a prompt engineering expert. Optimize this prompt to make it highly detailed and vivid:
+              role: "user",
+              content: `Optimize this prompt for image generation. Make it detailed with lighting, camera angle, art style, textures, colors:
 
 "${prompt}"
 
-Return ONLY the optimized prompt with rich visual details (lighting, camera angle, art style, textures, colors, atmosphere). No explanation.`,
-            },
-            {
-              role: "user",
-              content: `Make this prompt professional and detailed: "${prompt}"`
+Return ONLY the optimized prompt, no explanation:`
             }
           ],
           max_tokens: 500,
